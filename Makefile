@@ -14,22 +14,50 @@ DEV_PROJECT := $(REL_PROJECT)dev
 .PHONY: test build release clean
 
 test:
-	sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) build
-	sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) up agent
-	sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) up test
+	${INFO} "Building images..."
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) build
+	${INFO} "Ensuring database is ready..."
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) up agent
+	${INFO} "Running tests..."
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) up test
+	${INFO} "Testing complete"
 
 build:
-	sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) up builder
+	${INFO} "Building application artifacts..."
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) up builder
+	${INFO} "Build complete"
 
 release:
-	sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) build
-	sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) up agent
-	sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) run --rm app manage.py collectstatic --noinput
-	sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) run --rm app manage.py migrate --noinput
-	sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) up test
+	${INFO} "Building images..."
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) build
+	${INFO} "Ensuring database is ready..."
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) up agent
+	${INFO} "Collecting static files..."
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) run --rm app manage.py collectstatic --noinput
+	${INFO} "Running database migrations..."
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) run --rm app manage.py migrate --noinput
+	${INFO} "Running acceptance tests..."
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) up test
+	${INFO} "Acceptance testing complete"
 
 clean:
-	sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) stop
-	sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) rm -f
-	sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) stop
-	sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) rm -f
+	${INFO} "Destroying development environment..."
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) stop
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) rm -f -v
+	${INFO} "Destroying release environment..."
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) stop
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) rm -f -v
+	${INFO} "Removing dangling images..."
+# 	sudo docker -q -f dangling=true -f label=application=$(REPO_NAME) | xargs -I ARGS sudo docker rmi -f ARGS
+	@ sudo docker image prune --force --filter "label=application=$(REPO_NAME)"
+	${INFO} "Clean complete"
+
+#Cosmetics
+YELLOW := "\e[1;33m"
+NC := "\e[0m"
+
+#Shell Functions
+INFO := @bash -c '\
+    printf $(YELLOW); \
+    echo "=> $$1"; \
+    printf $(NC)' VALUE
