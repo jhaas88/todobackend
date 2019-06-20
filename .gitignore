@@ -4,9 +4,9 @@ venv
 #compiled python source files
 *.pyc
 
+#build & test aritfacts
+target
+reports
+
 #SQLite database files
 *.sqlite3
-
-#target
-target
-
