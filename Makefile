@@ -11,6 +11,12 @@ REL_COMPOSE_FILE := docker/release/docker-compose.yml
 REL_PROJECT := $(PROJECT_NAME)$(BUILD_ID)
 DEV_PROJECT := $(REL_PROJECT)dev
 
+# Application Service Name - must match Docker Compose release specification application service name
+APP_SERVICE_NAME := app
+
+# Use these settings to specify a custom Docker registry
+DOCKER_REGISTRY ?= docker.io
+
 #Check and Inspect Logic
 INSPECT := $$(sudo docker-compose -p $$1 -f $$2 ps -q $$3 | xargs -I ARGS sudo docker inspect -f "{{ .State.ExitCode }}" ARGS)
 
@@ -18,11 +24,14 @@ CHECK := @bash -c '\
     if [[ $(INSPECT) -ne 0 ]]; \
     then exit $(INSPECT); fi' VALUE
 
-.PHONY: test build release clean
+.PHONY: test build release clean tag
 
 test:
+	${INFO} "Pulling latest images..."
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) pull
 	${INFO} "Building images..."
-	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) build
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) build --pull test
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) build cache
 	${INFO} "Ensuring database is ready..."
 	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) run --rm agent
 	${INFO} "Running tests..."
@@ -32,6 +41,8 @@ test:
 	${INFO} "Testing complete"
 
 build:
+	${INFO} "Creating builder image..."
+	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) build builder
 	${INFO} "Building application artifacts..."
 	@ sudo docker-compose -p $(DEV_PROJECT) -f $(DEV_COMPOSE_FILE) up builder
 	${CHECK} $(DEV_PROJECT) $(DEV_COMPOSE_FILE) builder
@@ -40,8 +51,12 @@ build:
 	${INFO} "Build complete"
 
 release:
+	${INFO} "Pulling latest images..."
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) pull test
 	${INFO} "Building images..."
-	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) build
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) build app
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) build webroot
+	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) build --pull nginx
 	${INFO} "Ensuring database is ready..."
 	@ sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) run --rm agent
 	${INFO} "Collecting static files..."
@@ -66,6 +81,11 @@ clean:
 	@ sudo docker image prune --force --filter "label=application=$(REPO_NAME)"
 	${INFO} "Clean complete"
 
+tag:
+	${INFO} "Tagging release image with tags ${TAG_ARGS}..."
+	@ $(foreach tag,$(TAG_ARGS), sudo docker tag $(IMAGE_ID) $(DOCKER_REGISTRY)/$(ORG_NAME)/$(REPO_NAME):$(tag);)
+	${INFO} "Tagging complete"
+
 #Cosmetics
 YELLOW := "\e[1;33m"
 NC := "\e[0m"
@@ -75,3 +95,18 @@ INFO := @bash -c '\
     printf $(YELLOW); \
     echo "=> $$1"; \
     printf $(NC)' VALUE
+
+#Get container id of application service container
+APP_CONTAINER_ID := $$(sudo docker-compose -p $(REL_PROJECT) -f $(REL_COMPOSE_FILE) ps -q $(APP_SERVICE_NAME))
+
+# Get image id of application service
+IMAGE_ID := $$(sudo docker inspect -f '{{ .Image }}' $(APP_CONTAINER_ID))
+
+# Extract tag arguments
+ifeq (tag,$(firstword $(MAKECMDGOALS)))
+	TAG_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+	ifeq ($(TAG_ARGS),)
+		$(error You must specify a tag)
+	endif
+	$(eval $(TAG_ARGS):;@:)
+endif
