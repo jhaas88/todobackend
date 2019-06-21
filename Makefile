@@ -104,9 +104,9 @@ IMAGE_ID := $$(sudo docker inspect -f '{{ .Image }}' $(APP_CONTAINER_ID))
 
 # Extract tag arguments
 ifeq (tag,$(firstword $(MAKECMDGOALS)))
-	TAG_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-	ifeq ($(TAG_ARGS),)
-		$(error You must specify a tag)
-	endif
-	$(eval $(TAG_ARGS):;@:)
+    TAG_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+    ifeq ($(TAG_ARGS),)
+        $(error You must specify a tag)
+    endif
+    $(eval $(TAG_ARGS):;@:)
 endif
