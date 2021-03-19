@@ -9,7 +9,7 @@ setup (
 	scripts 				= ["manage.py"],
 	install_requires		= ["Django==2.2.1", 
 								"django-cors-headers==3.0.1",
-								"djangorestframework==3.9.4",
+								"djangorestframework==3.11.2",
 								"protobuf==3.7.1",
 								"pytz==2019.1",
 								"six==1.12.0",
