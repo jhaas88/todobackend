@@ -7,7 +7,7 @@ setup (
 	packages 				= find_packages(),
 	include_package_data 	= True,
 	scripts 				= ["manage.py"],
-	install_requires		= ["Django==2.2.1", 
+	install_requires		= ["Django==2.2.21", 
 								"django-cors-headers==3.0.1",
 								"djangorestframework==3.9.4",
 								"protobuf==3.7.1",
