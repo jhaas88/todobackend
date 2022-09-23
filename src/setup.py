@@ -10,7 +10,7 @@ setup (
 	install_requires		= ["Django==2.2.1", 
 								"django-cors-headers==3.0.1",
 								"djangorestframework==3.9.4",
-								"protobuf==3.7.1",
+								"protobuf==3.18.3",
 								"pytz==2019.1",
 								"six==1.12.0",
 								"sqlparse==0.3.0",
